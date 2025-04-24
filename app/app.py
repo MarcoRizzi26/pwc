@@ -1,9 +1,10 @@
 import streamlit as st
 import pandas as pd
+import io
 
 st.set_page_config(page_title="Verificador de Produtos Irregulares", layout="centered")
 
-st.title("🔍 Verificador de Produtos Irregulares (PWC vs AUC)")
+st.title("🔍 Verificador de Produtos Irregulares PWC")
 
 st.markdown("""
 Este app compara os produtos autorizados por cliente (PWC) com a carteira atual (AUC) 
@@ -44,12 +45,19 @@ if pwc_file and auc_file:
     st.success("✅ Análise concluída! Veja os produtos irregulares abaixo:")
     st.dataframe(clientes_com_bloqueio_filtrado[["Codigo da Conta", "Nome da Conta", "Instrumento (Nome)", "Valor Bruto"]])
 
-    # Opção de download
+    # Exportar para Excel em memória e disponibilizar para download
+    output = io.BytesIO()
+    with pd.ExcelWriter(output, engine='openpyxl') as writer:
+        clientes_com_bloqueio_filtrado.to_excel(writer, index=False, sheet_name='Irregulares')
+    output.seek(0)
+
     st.download_button(
         label="📥 Baixar resultado em Excel",
-        data=clientes_com_bloqueio_filtrado.to_excel(index=False, engine="openpyxl"),
+        data=output,
         file_name="clientes_com_bloqueio_filtrado.xlsx",
         mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
     )
+
 else:
     st.info("⬆️ Faça upload dos dois arquivos para iniciar a análise.")
+
