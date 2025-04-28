@@ -1,63 +1,9 @@
 import streamlit as st
-import pandas as pd
-import io
 
-st.set_page_config(page_title="Verificador de Produtos Irregulares", layout="centered")
+st.title("🛠️ Ferramentas Úteis")
 
-st.title("🔍 Verificador de Produtos Irregulares PWC")
+st.write("""
+Esta aplicação foi desenvolvida para concentrar algumas ferramentas que **não exigem armazenamento de dados** nem **alto processamento**.
 
-st.markdown("""
-Este app compara os produtos autorizados por cliente (PWC) com a carteira atual (AUC) 
-para identificar **produtos irregulares** que não estão na lista aprovada.
+O objetivo é oferecer soluções simples e rápidas em um só lugar, facilitando dia a dia de forma prática e acessível.
 """)
-
-pwc_file = st.file_uploader("📤 Faça upload do arquivo **PWC (.xlsx)**", type=["xlsx"])
-auc_file = st.file_uploader("📤 Faça upload do arquivo **AUC (.xlsx)**", type=["xlsx"])
-
-if pwc_file and auc_file:
-    pwc = pd.read_excel(pwc_file)
-    auc = pd.read_excel(auc_file)
-
-    # Renomeia colunas para facilitar o join
-    pwc_renamed = pwc.rename(columns={"Cód.": "Codigo da Conta", "PRODUTO APROVADO": "Instrumento (Nome)"})
-    auc = auc.rename(columns={"Código da Conta": "Codigo da Conta"})
-
-    # Filtra o auc para conter apenas os clientes da base PWC
-    clientes_pwc = pwc_renamed["Codigo da Conta"].unique()
-    auc_filtrado = auc[auc["Codigo da Conta"].isin(clientes_pwc)]
-
-    # Merge para identificar produtos REGULARES (autorizados)
-    merged = pd.merge(
-        auc_filtrado,
-        pwc_renamed[["Codigo da Conta", "Instrumento (Nome)"]],
-        on=["Codigo da Conta", "Instrumento (Nome)"],
-        how="left",
-        indicator=True
-    )
-
-    # Produtos que estão na carteira dos clientes PWC mas NÃO foram aprovados
-    irregulares = merged[merged["_merge"] == "left_only"].drop(columns=["_merge"])
-
-    # Filtro de produtos irrelevantes
-    filtro = ~irregulares["Instrumento (Nome)"].str.contains("BRL|Taxa de Gestão -", regex=True, na=False)
-    clientes_com_bloqueio_filtrado = irregulares[filtro].copy()
-
-    st.success("✅ Análise concluída! Veja os produtos irregulares abaixo:")
-    st.dataframe(clientes_com_bloqueio_filtrado[["Codigo da Conta", "Nome da Conta", "Instrumento (Nome)", "Valor Bruto"]])
-
-    # Exportar para Excel em memória e disponibilizar para download
-    output = io.BytesIO()
-    with pd.ExcelWriter(output, engine='openpyxl') as writer:
-        clientes_com_bloqueio_filtrado.to_excel(writer, index=False, sheet_name='Irregulares')
-    output.seek(0)
-
-    st.download_button(
-        label="📥 Baixar resultado em Excel",
-        data=output,
-        file_name="clientes_com_bloqueio_filtrado.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-    )
-
-else:
-    st.info("⬆️ Faça upload dos dois arquivos para iniciar a análise.")
-
