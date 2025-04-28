@@ -43,6 +43,8 @@ def show():
         filtro = ~irregulares["Instrumento (Nome)"].str.contains("BRL|Taxa de Gestão -", regex=True, na=False)
         clientes_com_bloqueio_filtrado = irregulares[filtro].copy()
 
+        clientes_com_bloqueio_filtrado = clientes_com_bloqueio_filtrado.reset_index(drop=True, inplace=True)
+
         st.success("✅ Análise concluída! Veja os produtos irregulares abaixo:")
         st.dataframe(clientes_com_bloqueio_filtrado[["Codigo da Conta", "Nome da Conta", "Instrumento (Nome)", "Valor Bruto"]])
 

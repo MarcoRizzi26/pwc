@@ -55,9 +55,6 @@ def process_analysis(auc_file, status_file, baseclientes_file, estoque_file):
     
     df_filtrado = nw_auc.drop_duplicates(subset=["Código da Conta", "RISCO"])
     
-    # Mostrar DataFrame filtrado
-    st.write(df_filtrado)
-    
     # Calcular o valor remanescente
     df_filtrado["valor-remanescente"] = df_filtrado["Exposição"] - df_filtrado["Valor-Permitido"]
     
@@ -75,10 +72,11 @@ def process_analysis(auc_file, status_file, baseclientes_file, estoque_file):
     df_riscos_liquidar.rename(columns={"valor-remanescente": "ESTOQUE"}, inplace=True)
     
     df_riscos_liquidar["ESTOQUE"] = df_riscos_liquidar["ESTOQUE"].apply(lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    df_riscos_liquidar = df_riscos_liquidar.reset_index(drop=True, inplace=True)
     
-    # Mostrar os resultados de estoque
+    # Mostrar df_riscos_liquidar
     st.write(df_riscos_liquidar)
-    
+
     # Processar o estoque
     estoque.set_index("RISCO", inplace=True)
     estoque.replace("-", np.nan, inplace=True)
@@ -86,12 +84,20 @@ def process_analysis(auc_file, status_file, baseclientes_file, estoque_file):
     estoque = estoque.transpose()
     estoque.index = pd.to_datetime(estoque.index)
     estoque = estoque.iloc[:, :7]
-    
-    # Plotar o gráfico
+
+    # Adicionar os dados de df_riscos_liquidar ao gráfico
     plt.figure(figsize=(12, 6))
+
+    # Plotar os dados do estoque (valores históricos)
     for risco in estoque.columns:
-        plt.plot(estoque.index, estoque[risco], marker='o', label=risco)
-    
+        plt.plot(estoque.index, estoque[risco], marker='o', label=f"Estoque - {risco}")
+
+    # Plotar os valores de estoque do df_riscos_liquidar (valores atuais do risco)
+    for risco in df_riscos_liquidar['RISCO']:
+        estoque_risco = df_riscos_liquidar[df_riscos_liquidar['RISCO'] == risco]['ESTOQUE'].values[0]
+        plt.scatter(estoque.index[-1], float(estoque_risco.replace("R$", "").replace(",", ".")), color='red', label=f'{risco} - Estoque Atual')
+
+    # Configurações do gráfico
     plt.xlabel("Data")
     plt.ylabel("Valor (R$)")
     plt.title("Variação dos Riscos ao Longo do Tempo")
@@ -99,6 +105,7 @@ def process_analysis(auc_file, status_file, baseclientes_file, estoque_file):
     plt.grid(True)
     plt.xticks(rotation=45)
     st.pyplot()
+
 
 # Função principal do Streamlit
 def main():

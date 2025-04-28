@@ -107,25 +107,5 @@ if nome_fundos_file and auc_file and resgates_files and aplicacoes_files:
     st.subheader("📄 Aplicações por Fundo")
     st.dataframe(aplicacoes_por_fundo)
 
-    # Botões de download
-    st.subheader("📥 Baixar Arquivos Consolidados")
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.download_button(
-            label="Baixar Resgates Finais (Excel)",
-            data=converter_excel(resgates_fim),
-            file_name='resgates_fim.xlsx',
-            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-
-    with col2:
-        st.download_button(
-            label="Baixar Aplicações Finais (Excel)",
-            data=converter_excel(aplicacoes),
-            file_name='aplicacoes_fim.xlsx',
-            mime='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
-        )
-
 else:
     st.warning("⚠️ Faça upload de todos os arquivos para prosseguir.")
