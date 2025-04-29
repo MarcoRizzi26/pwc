@@ -3,27 +3,24 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from io import BytesIO
 
-# Configurações da página
 st.set_page_config(page_title="Consolidador de Fundos", page_icon="📈", layout="wide")
 
 st.title("📈 Consolidador de Fundos")
 st.write("Faça upload dos arquivos necessários para consolidar os dados de resgates e aplicações.")
 
-# Upload dos arquivos
 nome_fundos_file = st.file_uploader("Upload do arquivo NOME-FUNDOS.xlsx", type="xlsx")
 auc_file = st.file_uploader("Upload do arquivo AUC do dia (.xlsx, qualquer nome)", type="xlsx")
 
 resgates_files = st.file_uploader("Upload dos arquivos de RESGATES (.xlsx)", type="xlsx", accept_multiple_files=True)
 aplicacoes_files = st.file_uploader("Upload dos arquivos de APLICAÇÕES (.xlsx)", type="xlsx", accept_multiple_files=True)
 
-# Função para consolidar múltiplos arquivos
 def consolidar_arquivos(arquivos, fundos_df):
     dfs = []
     for file in arquivos:
         df = pd.read_excel(file)
 
         if 'cnpj do fundo' not in df.columns:
-            continue  # pula arquivos errados
+            continue 
 
         df.rename(columns={'cnpj do fundo': 'CNPJ'}, inplace=True)
         df = df.merge(fundos_df, on='CNPJ', how='left')
@@ -34,14 +31,12 @@ def consolidar_arquivos(arquivos, fundos_df):
     else:
         return pd.DataFrame()
 
-# Função para converter DataFrame em arquivo Excel
 def converter_excel(df):
     output = BytesIO()
     with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
         df.to_excel(writer, index=False)
     return output.getvalue()
 
-# Processamento principal
 if nome_fundos_file and auc_file and resgates_files and aplicacoes_files:
     fundos_df = pd.read_excel(nome_fundos_file)
     auc = pd.read_excel(auc_file)
@@ -49,10 +44,8 @@ if nome_fundos_file and auc_file and resgates_files and aplicacoes_files:
     resgates = consolidar_arquivos(resgates_files, fundos_df)
     aplicacoes = consolidar_arquivos(aplicacoes_files, fundos_df)
 
-    # Tratamento de resgates
     resgates.rename(columns={'número da conta': 'Código da Conta', 'Nome do Fundo': 'Instrumento (Nome)'}, inplace=True)
 
-    # RESGATES - tipo RT
     resgates_rt = resgates[resgates["tipo de resgate"] == "RT"]
     merged_df = resgates_rt.merge(auc, on=["Código da Conta", "Instrumento (Nome)"], how="left")
     merged_df = merged_df.groupby(['Código da Conta', 'Instrumento (Nome)'], as_index=False)['Valor Bruto'].sum()
@@ -68,18 +61,14 @@ if nome_fundos_file and auc_file and resgates_files and aplicacoes_files:
     df_cleaned.rename(columns={'Valor Bruto': 'valor do resgate'}, inplace=True)
     df_cleaned['tipo de resgate'] = 'RT'
 
-    # RESGATES - tipo RP
     resgates_rp = resgates[resgates["tipo de resgate"] == "RP"]
 
-    # Junta RT e RP
     resgates_fim = pd.concat([df_cleaned, resgates_rp], ignore_index=True).reset_index(drop=True)
     resgates_fim = resgates_fim.drop(columns=["CNPJ"], errors='ignore')
 
-    # Consolidação final
     resgates_por_fundo = resgates_fim.groupby('Instrumento (Nome)')['valor do resgate'].sum().reset_index()
     aplicacoes_por_fundo = aplicacoes.groupby('Nome do Fundo')['valor da aplicacao'].sum().reset_index()
 
-    # Gráfico
     st.subheader("📊 Gráfico Comparativo de Resgates e Aplicações")
     fig, ax = plt.subplots(figsize=(12, 6))
     ax.bar(resgates_por_fundo['Instrumento (Nome)'], resgates_por_fundo['valor do resgate'],
@@ -94,13 +83,11 @@ if nome_fundos_file and auc_file and resgates_files and aplicacoes_files:
     plt.tight_layout()
     st.pyplot(fig)
 
-    # Formatar valores monetários
     resgates_por_fundo['valor do resgate'] = resgates_por_fundo['valor do resgate'].apply(
         lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
     aplicacoes_por_fundo['valor da aplicacao'] = aplicacoes_por_fundo['valor da aplicacao'].apply(
         lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
-    # Mostrar tabelas
     st.subheader("📄 Resgates por Fundo")
     st.dataframe(resgates_por_fundo)
 
