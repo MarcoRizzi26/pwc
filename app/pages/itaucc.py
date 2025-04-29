@@ -1,4 +1,3 @@
-
 import pandas as pd
 import re
 import streamlit as st
@@ -8,7 +7,7 @@ st.set_page_config(page_title="Filtro e padronização da conta corrente dos cli
 
 st.title("📈 Padronização da conta corrente clientes Itau")
 
-df = st.file_uploader("Upload da base para o tratamento", type="xlsx")
+uploaded_file = st.file_uploader("Upload da base para o tratamento", type="xlsx")
 
 def tratamento(df):
     clientes = []
@@ -51,8 +50,13 @@ def tratamento(df):
     output.seek(0)
 
     st.download_button(
-                label="📥 Baixar resultado em Excel",
-                data=output,
-                file_name="df_clientes.xlsx",
-                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-            )
+        label="📥 Baixar resultado em Excel",
+        data=output,
+        file_name="df_clientes.xlsx",
+        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+    )
+
+# 🔁 Chama a função se o arquivo foi carregado
+if uploaded_file is not None:
+    df = pd.read_excel(uploaded_file)
+    tratamento(df)
