@@ -2,6 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import streamlit as st
+from datetime import datetime
 
 def upload_files():
     auc_file = st.file_uploader("Upload do arquivo AUC", type=["xlsx"])
@@ -62,26 +63,34 @@ def process_analysis(auc_file, status_file, baseclientes_file, estoque_file):
     
     df_riscos_liquidar.rename(columns={"valor-remanescente": "ESTOQUE"}, inplace=True)
     
-    df_riscos_liquidar["ESTOQUE"] = df_riscos_liquidar["ESTOQUE"].apply(lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
     df_riscos_liquidar = df_riscos_liquidar.reset_index(drop=True, inplace=True)
+
+    data_coluna = datetime.today().strftime('%Y-%m-%d')
+
+    df_riscos_liquidar = df_riscos_liquidar.rename(colums={"ESTOQUE": data_coluna})
     
     st.write(df_riscos_liquidar)
 
-    estoque.set_index("RISCO", inplace=True)
-    estoque.replace("-", np.nan, inplace=True)
-    estoque = estoque.astype(float)
-    estoque = estoque.transpose()
-    estoque.index = pd.to_datetime(estoque.index)
-    estoque = estoque.iloc[:, :7]
+    df_merged = pd.merge(estoque, df_riscos_liquidar, on="RISCO", how="outer")
+
+    colunas_data = [col for col in df_merged.columns if col != 'RISCO']
+
+    colunas_data_ordenadas = sorted(colunas_data, key=lambda x: pd.to_datetime(str(x)))
+
+    df_merged = df_merged[['RISCO'] + colunas_data_ordenadas]
+
+    df = pd.DataFrame(df_merged)
+
+    df.set_index("RISCO", inplace=True)
+    df.replace("-", np.nan, inplace=True)
+    df = df.astype(float)
+    df = df.transpose()
+    df.index = pd.to_datetime(df.index)
+    df = df.iloc[:, :15]
 
     plt.figure(figsize=(12, 6))
-
-    for risco in estoque.columns:
-        plt.plot(estoque.index, estoque[risco], marker='o', label=f"Estoque - {risco}")
-
-    for risco in df_riscos_liquidar['RISCO']:
-        estoque_risco = df_riscos_liquidar[df_riscos_liquidar['RISCO'] == risco]['ESTOQUE'].values[0]
-        plt.scatter(estoque.index[-1], float(estoque_risco.replace("R$", "").replace(",", ".")), color='red', label=f'{risco} - Estoque Atual')
+    for risco in df.columns:
+        plt.plot(df.index, df[risco], marker='o', label=risco)
 
     plt.xlabel("Data")
     plt.ylabel("Valor (R$)")
@@ -89,8 +98,7 @@ def process_analysis(auc_file, status_file, baseclientes_file, estoque_file):
     plt.legend(loc="upper left", bbox_to_anchor=(1, 1))
     plt.grid(True)
     plt.xticks(rotation=45)
-    st.pyplot()
-
+    plt.show()
 
 def main():
     st.title("Análise de Carteira de Clientes")
