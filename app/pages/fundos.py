@@ -3,96 +3,104 @@ import pandas as pd
 import matplotlib.pyplot as plt
 from io import BytesIO
 
-st.set_page_config(page_title="Consolidador de Fundos", page_icon="📈", layout="wide")
+st.set_page_config(layout="wide")
 
-st.title("📈 Consolidador de Fundos")
-st.write("Faça upload dos arquivos necessários para consolidar os dados de resgates e aplicações.")
+st.title("📊 Relatório Consolidado de Aplicações e Resgates")
 
-nome_fundos_file = st.file_uploader("Upload do arquivo NOME-FUNDOS.xlsx", type="xlsx")
-auc_file = st.file_uploader("Upload do arquivo AUC do dia (.xlsx, qualquer nome)", type="xlsx")
+# === Upload dos arquivos base ===
+st.sidebar.header("📁 Upload dos Arquivos")
 
-resgates_files = st.file_uploader("Upload dos arquivos de RESGATES (.xlsx)", type="xlsx", accept_multiple_files=True)
-aplicacoes_files = st.file_uploader("Upload dos arquivos de APLICAÇÕES (.xlsx)", type="xlsx", accept_multiple_files=True)
+fundos_file = st.sidebar.file_uploader("Nome dos Fundos (NOME-FUNDOS.xlsx)", type="xlsx")
+auc_file = st.sidebar.file_uploader("AUC (ex: AUC - 28.05.2025.xlsx)", type="xlsx")
 
-def consolidar_arquivos(arquivos, fundos_df):
-    dfs = []
-    for file in arquivos:
-        df = pd.read_excel(file)
+aplicacoes_files = st.sidebar.file_uploader("Aplicações (vários arquivos .xlsx)", type="xlsx", accept_multiple_files=True)
+resgates_files = st.sidebar.file_uploader("Resgates (vários arquivos .xlsx)", type="xlsx", accept_multiple_files=True)
 
-        if 'cnpj do fundo' not in df.columns:
-            continue 
+if fundos_file and auc_file and aplicacoes_files and resgates_files:
 
-        df.rename(columns={'cnpj do fundo': 'CNPJ'}, inplace=True)
-        df = df.merge(fundos_df, on='CNPJ', how='left')
-        dfs.append(df)
-
-    if dfs:
-        return pd.concat(dfs, ignore_index=True)
-    else:
-        return pd.DataFrame()
-
-def converter_excel(df):
-    output = BytesIO()
-    with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
-        df.to_excel(writer, index=False)
-    return output.getvalue()
-
-if nome_fundos_file and auc_file and resgates_files and aplicacoes_files:
-    fundos_df = pd.read_excel(nome_fundos_file)
+    # === Leitura dos arquivos ===
+    nome_fundos = pd.read_excel(fundos_file)
     auc = pd.read_excel(auc_file)
 
-    resgates = consolidar_arquivos(resgates_files, fundos_df)
-    aplicacoes = consolidar_arquivos(aplicacoes_files, fundos_df)
+    def consolidar(arquivos):
+        dfs = [pd.read_excel(f) for f in arquivos]
+        return pd.concat(dfs, ignore_index=True)
 
-    resgates.rename(columns={'número da conta': 'Código da Conta', 'Nome do Fundo': 'Instrumento (Nome)'}, inplace=True)
+    aplicacoes = consolidar(aplicacoes_files)
+    resgates = consolidar(resgates_files)
 
-    resgates_rt = resgates[resgates["tipo de resgate"] == "RT"]
-    merged_df = resgates_rt.merge(auc, on=["Código da Conta", "Instrumento (Nome)"], how="left")
-    merged_df = merged_df.groupby(['Código da Conta', 'Instrumento (Nome)'], as_index=False)['Valor Bruto'].sum()
-    df_cleaned = merged_df.drop_duplicates(subset=['Código da Conta', 'Instrumento (Nome)'])
+    # === Processamento de RT ===
+    resgates_rt = resgates[resgates['tipo de resgate'] == 'RT'].copy()
+    resgates_others = resgates[resgates['tipo de resgate'] != 'RT'].copy()
 
-    colunas_remover = [
-        "CNPJ", "CPF/CNPJ", "Nome da Conta", "Subclasse do Ativo", "Quantidade", "Preço",
-        "Data de Alocação Inicial", "Categoria do Instrumento", "Data de Referência",
-        "Classe do Ativo", "Valor Líquido", "Taxa", "Nome Emissor", "Instrumento (Símbolo)",
-        "InvestorType", "valor do resgate"
-    ]
-    df_cleaned = df_cleaned.drop(columns=colunas_remover, errors='ignore')
-    df_cleaned.rename(columns={'Valor Bruto': 'valor do resgate'}, inplace=True)
-    df_cleaned['tipo de resgate'] = 'RT'
+    resgates_rt['cnpj do fundo'] = resgates_rt['cnpj do fundo'].astype(str).str.replace(',', '').str.strip()
+    resgates_rt['número da conta'] = resgates_rt['número da conta'].astype(str).str.strip()
+    auc['Instrumento (Símbolo)'] = auc['Instrumento (Símbolo)'].astype(str).str.strip()
+    auc['Código da Conta'] = auc['Código da Conta'].astype(str).str.strip()
 
-    resgates_rp = resgates[resgates["tipo de resgate"] == "RP"]
+    auc_reduzido = auc[['Código da Conta', 'Instrumento (Símbolo)', 'Valor Bruto']].copy()
 
-    resgates_fim = pd.concat([df_cleaned, resgates_rp], ignore_index=True).reset_index(drop=True)
-    resgates_fim = resgates_fim.drop(columns=["CNPJ"], errors='ignore')
+    resgates_rt_merged = resgates_rt.merge(
+        auc_reduzido,
+        left_on=['número da conta', 'cnpj do fundo'],
+        right_on=['Código da Conta', 'Instrumento (Símbolo)'],
+        how='left'
+    )
+    resgates_rt_merged['valor do resgate'] = resgates_rt_merged['Valor Bruto']
 
-    resgates_por_fundo = resgates_fim.groupby('Instrumento (Nome)')['valor do resgate'].sum().reset_index()
-    aplicacoes_por_fundo = aplicacoes.groupby('Nome do Fundo')['valor da aplicacao'].sum().reset_index()
+    resgates_rt_final = resgates_rt_merged[['número da conta', 'cnpj do fundo', 'valor do resgate', 'tipo de resgate']]
+    resgates_others = resgates_others[['número da conta', 'cnpj do fundo', 'valor do resgate', 'tipo de resgate']]
+    resgates_final = pd.concat([resgates_rt_final, resgates_others], ignore_index=True)
 
-    st.subheader("📊 Gráfico Comparativo de Resgates e Aplicações")
+    # === Associar nome do fundo pelo CNPJ ===
+    def padronizar_cnpj(cnpj):
+        return str(cnpj).replace(',', '').strip().zfill(14)
+
+    aplicacoes['cnpj do fundo'] = aplicacoes['cnpj do fundo'].apply(padronizar_cnpj)
+    resgates_final['cnpj do fundo'] = resgates_final['cnpj do fundo'].apply(padronizar_cnpj)
+    nome_fundos['CNPJ'] = nome_fundos['CNPJ'].apply(padronizar_cnpj)
+
+    nome_fundos = nome_fundos.drop_duplicates(subset='CNPJ')
+
+    aplicacoes_com_nome = aplicacoes.merge(
+        nome_fundos[['CNPJ', 'Nome do Fundo']],
+        left_on='cnpj do fundo',
+        right_on='CNPJ',
+        how='left'
+    )
+
+    resgates_com_nome = resgates_final.merge(
+        nome_fundos[['CNPJ', 'Nome do Fundo']],
+        left_on='cnpj do fundo',
+        right_on='CNPJ',
+        how='left'
+    )
+
+    # === Relatório ===
+    aplicacoes_por_fundo = aplicacoes_com_nome.groupby('Nome do Fundo')['valor da aplicacao'].sum().reset_index()
+    resgates_por_fundo = resgates_com_nome.groupby('Nome do Fundo')['valor do resgate'].sum().reset_index()
+
+    relatorio = pd.merge(aplicacoes_por_fundo, resgates_por_fundo, on='Nome do Fundo', how='outer').fillna(0)
+
+    relatorio['valor da aplicacao (R$)'] = relatorio['valor da aplicacao'].apply(
+        lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+    relatorio['valor do resgate (R$)'] = relatorio['valor do resgate'].apply(
+        lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+
+    # === Exibir tabela ===
+    st.subheader("📄 Relatório Consolidado por Fundo")
+    st.dataframe(relatorio[['Nome do Fundo', 'valor da aplicacao (R$)', 'valor do resgate (R$)']])
+
+    # === Gráfico ===
+    st.subheader("📈 Gráfico Comparativo")
     fig, ax = plt.subplots(figsize=(12, 6))
-    ax.bar(resgates_por_fundo['Instrumento (Nome)'], resgates_por_fundo['valor do resgate'],
-           label='Resgates', width=0.4, align='center', color='red')
-    ax.bar(aplicacoes_por_fundo['Nome do Fundo'], aplicacoes_por_fundo['valor da aplicacao'],
-           label='Aplicações', width=0.4, align='edge', color='green')
-    ax.set_xlabel('Nome do Fundo')
+    ax.bar(relatorio['Nome do Fundo'], relatorio['valor da aplicacao'], label='Aplicações', color='green')
+    ax.bar(relatorio['Nome do Fundo'], relatorio['valor do resgate'], label='Resgates', color='red', alpha=0.7)
+    ax.set_title('Aplicações vs Resgates por Fundo')
     ax.set_ylabel('Valor (R$)')
-    ax.set_title('Comparação entre Resgates e Aplicações por Fundo')
-    ax.legend()
     plt.xticks(rotation=45, ha='right')
-    plt.tight_layout()
+    ax.legend()
     st.pyplot(fig)
 
-    resgates_por_fundo['valor do resgate'] = resgates_por_fundo['valor do resgate'].apply(
-        lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-    aplicacoes_por_fundo['valor da aplicacao'] = aplicacoes_por_fundo['valor da aplicacao'].apply(
-        lambda x: f"R$ {x:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
-
-    st.subheader("📄 Resgates por Fundo")
-    st.dataframe(resgates_por_fundo)
-
-    st.subheader("📄 Aplicações por Fundo")
-    st.dataframe(aplicacoes_por_fundo)
-
 else:
-    st.warning("⚠️ Faça upload de todos os arquivos para prosseguir.")
+    st.info("📂 Por favor, envie todos os arquivos necessários na barra lateral para gerar o relatório.")
