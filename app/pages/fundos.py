@@ -90,31 +90,41 @@ if nome_fundos_file and auc_file and aplicacoes_files and resgates_files:
     st.subheader("📈 Gráfico Comparativo")
     fig, ax = plt.subplots(figsize=(12, 6))
 
-    barras_ap = ax.bar(relatorio['Nome do Fundo'], relatorio['valor da aplicacao'], label='Aplicações', color='green')
-    barras_reg = ax.bar(relatorio['Nome do Fundo'], relatorio['valor do resgate'], label='Resgates', color='red', alpha=0.7)
+    x = relatorio['Nome do Fundo']
+    y_ap = relatorio['valor da aplicacao']
+    y_rg = relatorio['valor do resgate']
 
-    # Adicionar rótulos nas barras com melhor posicionamento
-    def adicionar_valores(barras):
-        for barra in barras:
-            altura = barra.get_height()
-            ax.annotate(f"R$ {altura:,.0f}".replace(",", "X").replace(".", ",").replace("X", "."),
-                        xy=(barra.get_x() + barra.get_width() / 2, altura),
-                        xytext=(0, 10),  # distância maior acima da barra
-                        textcoords="offset points",
-                        ha='center', va='bottom', fontsize=9, fontweight='bold', color='black')
+    largura = 0.4
+    indices = range(len(x))
 
-    adicionar_valores(barras_ap)
-    adicionar_valores(barras_reg)
+    barras_ap = ax.bar([i - largura / 2 for i in indices], y_ap, width=largura, label='Aplicações', color='green')
+    barras_rg = ax.bar([i + largura / 2 for i in indices], y_rg, width=largura, label='Resgates', color='red', alpha=0.7)
 
-    # Ajustar espaçamento do topo para não cortar os rótulos
-    ax.set_ylim(top=max(relatorio['valor da aplicacao'].max(), relatorio['valor do resgate'].max()) * 1.15)
+    # Adicionar valores somente na barra com valor maior (por par)
+    for i, (valor_ap, valor_rg) in enumerate(zip(y_ap, y_rg)):
+        if valor_ap >= valor_rg:
+            valor = valor_ap
+            pos_x = barras_ap[i].get_x() + barras_ap[i].get_width() / 2
+        else:
+            valor = valor_rg
+            pos_x = barras_rg[i].get_x() + barras_rg[i].get_width() / 2
+
+        ax.annotate(
+            f"R$ {valor:,.0f}".replace(",", "X").replace(".", ",").replace("X", "."),
+            xy=(pos_x, valor),
+            xytext=(0, 8),
+            textcoords="offset points",
+            ha='center', va='bottom', fontsize=9, fontweight='bold', color='black'
+        )
 
     ax.set_title('Aplicações vs Resgates por Fundo')
     ax.set_ylabel('Valor (R$)')
+    ax.set_xticks(indices)
+    ax.set_xticklabels(x, rotation=45, ha='right')
     ax.legend()
-    plt.xticks(rotation=45, ha='right')
-    st.pyplot(fig)
+    ax.set_ylim(top=max(y_ap.max(), y_rg.max()) * 1.2)
 
+    st.pyplot(fig)
 
 else:
     st.info("📥 Faça upload de todos os arquivos para gerar o relatório. V2")
