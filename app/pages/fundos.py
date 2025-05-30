@@ -93,23 +93,28 @@ if nome_fundos_file and auc_file and aplicacoes_files and resgates_files:
     barras_ap = ax.bar(relatorio['Nome do Fundo'], relatorio['valor da aplicacao'], label='Aplicações', color='green')
     barras_reg = ax.bar(relatorio['Nome do Fundo'], relatorio['valor do resgate'], label='Resgates', color='red', alpha=0.7)
 
-    # Adicionar rótulos nas barras
+    # Adicionar rótulos nas barras com melhor posicionamento
     def adicionar_valores(barras):
         for barra in barras:
             altura = barra.get_height()
             ax.annotate(f"R$ {altura:,.0f}".replace(",", "X").replace(".", ",").replace("X", "."),
                         xy=(barra.get_x() + barra.get_width() / 2, altura),
-                        xytext=(0, 3), textcoords="offset points",
-                        ha='center', va='bottom', fontsize=8)
+                        xytext=(0, 10),  # distância maior acima da barra
+                        textcoords="offset points",
+                        ha='center', va='bottom', fontsize=9, fontweight='bold', color='black')
 
     adicionar_valores(barras_ap)
     adicionar_valores(barras_reg)
+
+    # Ajustar espaçamento do topo para não cortar os rótulos
+    ax.set_ylim(top=max(relatorio['valor da aplicacao'].max(), relatorio['valor do resgate'].max()) * 1.15)
 
     ax.set_title('Aplicações vs Resgates por Fundo')
     ax.set_ylabel('Valor (R$)')
     ax.legend()
     plt.xticks(rotation=45, ha='right')
     st.pyplot(fig)
+
 
 else:
     st.info("📥 Faça upload de todos os arquivos para gerar o relatório. V2")
