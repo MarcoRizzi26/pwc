@@ -34,14 +34,14 @@ if nome_fundos_file and auc_file and aplicacoes_files and resgates_files:
 
     # Remove a 4ª coluna (índice 3) do DataFrame de aplicações
     # É uma boa prática verificar se o DataFrame tem colunas suficientes antes de remover
-    if len(aplicacoes.columns) > 3:
-        coluna_removida_app = aplicacoes.columns[3]
+    if len(aplicacoes.columns) > 2:
+        coluna_removida_app = aplicacoes.columns[2]
         aplicacoes.drop(columns=[coluna_removida_app], inplace=True)
         print(f"Coluna '{coluna_removida_app}' removida do DataFrame de Aplicações.")
 
     # Remove a 4ª coluna (índice 3) do DataFrame de resgates
-    if len(resgates.columns) > 3:
-        coluna_removida_resg = resgates.columns[3]
+    if len(resgates.columns) > 2:
+        coluna_removida_resg = resgates.columns[2]
         resgates.drop(columns=[coluna_removida_resg], inplace=True)
         print(f"Coluna '{coluna_removida_resg}' removida do DataFrame de Resgates.")
 
