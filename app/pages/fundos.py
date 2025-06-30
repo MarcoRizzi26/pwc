@@ -65,6 +65,7 @@ if nome_fundos_file and auc_file and aplicacoes_files and resgates_files:
     )
     resgates_rt_merged['valor do resgate'] = resgates_rt_merged['Valor Bruto']
     resgates_rt_final = resgates_rt_merged[['número da conta', 'cnpj do fundo', 'valor do resgate', 'tipo de resgate']]
+    st.write("Colunas disponíveis em resgates_others:", resgates_others.columns)
     resgates_others = resgates_others[['número da conta', 'cnpj do fundo', 'valor do resgate', 'tipo de resgate']]
     resgates_final = pd.concat([resgates_rt_final, resgates_others], ignore_index=True)
 
