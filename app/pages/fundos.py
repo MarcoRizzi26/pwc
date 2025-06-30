@@ -32,6 +32,19 @@ if nome_fundos_file and auc_file and aplicacoes_files and resgates_files:
     aplicacoes = pd.concat([pd.read_excel(f) for f in aplicacoes_files], ignore_index=True)
     resgates = pd.concat([pd.read_excel(f) for f in resgates_files], ignore_index=True)
 
+    # Remove a 4ª coluna (índice 3) do DataFrame de aplicações
+    # É uma boa prática verificar se o DataFrame tem colunas suficientes antes de remover
+    if len(aplicacoes.columns) > 3:
+        coluna_removida_app = aplicacoes.columns[3]
+        aplicacoes.drop(columns=[coluna_removida_app], inplace=True)
+        print(f"Coluna '{coluna_removida_app}' removida do DataFrame de Aplicações.")
+
+    # Remove a 4ª coluna (índice 3) do DataFrame de resgates
+    if len(resgates.columns) > 3:
+        coluna_removida_resg = resgates.columns[3]
+        resgates.drop(columns=[coluna_removida_resg], inplace=True)
+        print(f"Coluna '{coluna_removida_resg}' removida do DataFrame de Resgates.")
+
     # Separar RT dos outros tipos
     resgates_rt = resgates[resgates['tipo de resgate'] == 'RT'].copy()
     resgates_others = resgates[resgates['tipo de resgate'] != 'RT'].copy()
